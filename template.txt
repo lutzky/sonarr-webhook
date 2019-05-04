@@ -1,0 +1,7 @@
+Sonarr - {{.SonarrEvent.Series.Title}}
+
+{{range .SonarrEvent.Episodes -}}
+Episode S{{printf "%02d" .SeasonNumber}}E{{printf "%02d" .EpisodeNumber}} "{{.Title}}" {{- if .AirDate }} (aired {{.AirDate}}){{end}}
+{{end -}}
+Performed "{{.SonarrEvent.EventType}}".
+{{if .SonarrEvent.Release}}Quality: {{.SonarrEvent.Release.Quality}}{{end}}
