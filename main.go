@@ -51,7 +51,7 @@ func subjectAndMessage(s string) (string, string) {
 	return strings.TrimSpace(b1.String()), strings.TrimSpace(b2.String())
 }
 
-type Config struct {
+type config struct {
 	Mail struct {
 		From     string
 		Server   string
@@ -60,8 +60,8 @@ type Config struct {
 	}
 }
 
-func loadConfig() Config {
-	var c Config
+func loadConfig() config {
+	var c config
 
 	// This function has an unfortunate amount of repetition :(
 

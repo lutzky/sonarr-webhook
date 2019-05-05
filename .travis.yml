@@ -7,7 +7,7 @@ before_install:
 script:
   - go test ./... -race -coverprofile=coverage.txt -covermode=atomic
   - go vet ./...
-  - golint --set_exit_status ./...
+  - golint --set_exit_status $(go list ./... | grep -v /pkg/sonarr)
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 branches:

@@ -1,3 +1,6 @@
+// package mail is a convenient wrapper around net/smtp, automatically
+// populating SMTP headers.
+
 package mail
 
 import (
@@ -5,6 +8,7 @@ import (
 	"strings"
 )
 
+// Send sends an email
 func Send(server string, a smtp.Auth, from, to, subject, msg string) error {
 	rawMsg := buildRawMessage(from, to, subject, msg)
 	return smtp.SendMail(server, a, from, []string{to}, []byte(rawMsg))
