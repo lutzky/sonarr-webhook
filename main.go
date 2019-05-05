@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/lutzky/sonarr-webhook/pkg/sonarr"
@@ -17,6 +20,32 @@ var (
 )
 
 var tmpl = template.Must(template.ParseFiles("template.txt"))
+
+func subjectAndMessage(s string) (string, string) {
+	scanner := bufio.NewScanner(strings.NewReader(s))
+
+	var b1, b2 bytes.Buffer
+	seenBlankLine := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !seenBlankLine && line == "" {
+			seenBlankLine = true
+			continue
+		}
+		if !seenBlankLine {
+			fmt.Fprintln(&b1, line)
+		} else {
+			fmt.Fprintln(&b2, line)
+		}
+	}
+
+	if b2.Len() == 0 {
+		// No subject, just a message
+		return "", strings.TrimSpace(b1.String())
+	}
+	return strings.TrimSpace(b1.String()), strings.TrimSpace(b2.String())
+}
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
