@@ -21,7 +21,6 @@ import (
 var (
 	port         = flag.Int("port", 9999, "Port to listen on")
 	templateFile = flag.String("template", "template.txt", "Template file")
-	configFile   = flag.String("config", "config.json", "Config file")
 )
 
 var tmpl *template.Template
@@ -63,13 +62,33 @@ type Config struct {
 
 func loadConfig() Config {
 	var c Config
-	f, err := os.Open(*configFile)
-	if err != nil {
-		log.Fatal(err)
+
+	// This function has an unfortunate amount of repetition :(
+
+	if from := os.Getenv("SMTP_FROM"); from == "" {
+		log.Fatal("Missing env variable: SMTP_FROM")
+	} else {
+		c.Mail.From = from
 	}
-	if err := json.NewDecoder(f).Decode(&c); err != nil {
-		log.Fatal(err)
+
+	if server := os.Getenv("SMTP_SERVER"); server == "" {
+		log.Fatal("Missing env variable: SMTP_SERVER")
+	} else {
+		c.Mail.Server = server
 	}
+
+	if username := os.Getenv("SMTP_USERNAME"); username == "" {
+		log.Fatal("Missing env variable: SMTP_USERNAME")
+	} else {
+		c.Mail.Username = username
+	}
+
+	if password := os.Getenv("SMTP_PASSWORD"); password == "" {
+		log.Fatal("Missing env variable: SMTP_PASSWORD")
+	} else {
+		c.Mail.Password = password
+	}
+
 	return c
 }
 
