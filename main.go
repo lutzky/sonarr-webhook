@@ -7,19 +7,24 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strings"
 	"text/template"
 
+	"github.com/lutzky/sonarr-webhook/mail"
 	"github.com/lutzky/sonarr-webhook/pkg/sonarr"
 )
 
 var (
-	port = flag.Int("port", 9999, "Port to listen on")
+	port         = flag.Int("port", 9999, "Port to listen on")
+	templateFile = flag.String("template", "template.txt", "Template file")
+	configFile   = flag.String("config", "config.json", "Config file")
 )
 
-var tmpl = template.Must(template.ParseFiles("template.txt"))
+var tmpl *template.Template
 
 func subjectAndMessage(s string) (string, string) {
 	scanner := bufio.NewScanner(strings.NewReader(s))
@@ -47,18 +52,76 @@ func subjectAndMessage(s string) (string, string) {
 	return strings.TrimSpace(b1.String()), strings.TrimSpace(b2.String())
 }
 
-func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		var s sonarr.SonarrEvent
-		defer r.Body.Close()
-		json.NewDecoder(r.Body).Decode(&s)
+type Config struct {
+	Mail struct {
+		From     string
+		Server   string
+		Username string
+		Password string
+	}
+}
 
-		if err := tmpl.Execute(os.Stdout, struct {
-			SonarrEvent sonarr.SonarrEvent
-		}{
-			SonarrEvent: s,
-		}); err != nil {
-			fmt.Printf("Failed to execute template: %v\n", err)
+func loadConfig() Config {
+	var c Config
+	f, err := os.Open(*configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := json.NewDecoder(f).Decode(&c); err != nil {
+		log.Fatal(err)
+	}
+	return c
+}
+
+func runTemplate(event sonarr.SonarrEvent) (string, error) {
+	var b bytes.Buffer
+
+	if err := tmpl.Execute(&b, struct {
+		SonarrEvent sonarr.SonarrEvent
+	}{
+		SonarrEvent: event,
+	}); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
+}
+
+func main() {
+	flag.Parse()
+	tmpl = template.Must(template.ParseFiles(*templateFile))
+
+	config := loadConfig()
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var ev sonarr.SonarrEvent
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&ev); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid SonarrEvent: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		to := r.FormValue("to")
+
+		if to == "" {
+			http.Error(w, "Missing ?to=target@email.com", http.StatusBadRequest)
+			return
+		}
+
+		response, err := runTemplate(ev)
+
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			log.Printf("Error executing template: %v", err)
+			return
+		}
+
+		subject, message := subjectAndMessage(response)
+		host, _, _ := net.SplitHostPort(config.Mail.Server)
+		auth := smtp.PlainAuth("", config.Mail.Username, config.Mail.Password, host)
+		if err := mail.Send(config.Mail.Server, auth, config.Mail.From, to, subject, message); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			log.Printf("Error sending mail: %v", err)
+			return
 		}
 	})
 	fmt.Println("Listening on port", *port)

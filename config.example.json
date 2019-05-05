@@ -1,0 +1,8 @@
+{
+  "Mail": {
+    "From": "you@you.com",
+    "Server": "your.smtp.server.com:587",
+    "Username": "username",
+    "Password": "password"
+  }
+}
