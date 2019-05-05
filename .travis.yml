@@ -1,0 +1,15 @@
+language: go
+go:
+  - "1.12"
+  - "master"
+before_install:
+  - go get -u golang.org/x/lint/golint
+script:
+  - go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+  - go vet ./...
+  - golint --set_exit_status ./...
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+branches:
+  except:
+    - /.*-wip$/
